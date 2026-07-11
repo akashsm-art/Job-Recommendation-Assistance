@@ -722,3 +722,55 @@ label {
   color: var(--text);
   opacity: 0.85;
 }
+
+/* Drag and Drop Zone styling */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.drop-zone-icon {
+  font-size: 3rem;
+}
+
+.drop-zone-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.drop-zone-subtext {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+@keyframes shake {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(10deg); }
+  30% { transform: rotate(-10deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-4deg); }
+  100% { transform: rotate(0); }
+}
+
+.shake-bell {
+  animation: shake 0.6s ease-in-out infinite;
+  display: inline-block;
+}
+

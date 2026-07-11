@@ -16,6 +16,7 @@ from models.company import Company
 from models.application import Application, ApplicationStatus
 from models.saved_job import SavedJob
 from models.users import User
+from models.notification import Notification, NotificationType
 from schemas.job import JobCreate, JobUpdate, JobResponse, JobSearchFilters
 from schemas.application import ApplicationCreate, ApplicationResponse, ApplicationUpdate
 from schemas.recommendation import JobRecommendation, SkillGapAnalysis
@@ -112,6 +113,106 @@ async def search_jobs(
     query = query.order_by(Job.posted_at.desc()).offset(offset).limit(page_size)
 
     result = await db.execute(query)
+    return result.scalars().all()
+
+
+# ============================================================
+# Notifications
+# ============================================================
+
+@router.get("/notifications/unread-count")
+async def get_unread_notification_count(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get count of unread notifications."""
+    result = await db.execute(
+        select(func.count(Notification.id)).filter(
+            Notification.user_id == current_user.id,
+            Notification.is_read == False,
+        )
+    )
+    return {"count": result.scalar() or 0}
+
+
+@router.get("/notifications")
+async def get_notifications(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all notifications for the current user."""
+    result = await db.execute(
+        select(Notification)
+        .filter(Notification.user_id == current_user.id)
+        .order_by(Notification.created_at.desc())
+        .limit(50)
+    )
+    notifications = result.scalars().all()
+    return [
+        {
+            "id": n.id,
+            "type": n.type.value if n.type else "system",
+            "title": n.title,
+            "message": n.message,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+        }
+        for n in notifications
+    ]
+
+
+@router.put("/notifications/{notif_id}/read")
+async def mark_notification_read(
+    notif_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark a notification as read."""
+    result = await db.execute(
+        select(Notification).filter(
+            Notification.id == notif_id,
+            Notification.user_id == current_user.id,
+        )
+    )
+    notif = result.scalars().first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    await db.commit()
+    return {"message": "Notification marked as read"}
+
+
+@router.put("/notifications/read-all")
+async def mark_all_notifications_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Mark all notifications as read."""
+    from sqlalchemy import update as sql_update
+    await db.execute(
+        sql_update(Notification)
+        .where(Notification.user_id == current_user.id, Notification.is_read == False)
+        .values(is_read=True)
+    )
+    await db.commit()
+    return {"message": "All notifications marked as read"}
+
+
+@router.get("/my-jobs", response_model=list[JobResponse])
+async def get_my_jobs(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all jobs posted by the recruiter's companies (or all if admin)."""
+    if current_user.role.value == "admin":
+        result = await db.execute(select(Job))
+        return result.scalars().all()
+        
+    result = await db.execute(
+        select(Job)
+        .join(Company, Job.company_id == Company.id)
+        .filter(Company.owner_id == current_user.id)
+    )
     return result.scalars().all()
 
 
@@ -269,25 +370,37 @@ async def update_application_status(
         raise HTTPException(status_code=404, detail="Application not found")
 
     app.status = ApplicationStatus(update.status)
-    await db.commit()
-    await db.refresh(app)
 
-    # Send notification email
+    # Create in-app notification for the candidate
     try:
-        from services.email import send_application_status_email
-        user_result = await db.execute(select(User).filter(User.id == app.user_id))
-        user = user_result.scalars().first()
         job_result = await db.execute(
             select(Job).filter(Job.id == app.job_id).options(selectinload(Job.company))
         )
         job = job_result.scalars().first()
-        if user and job:
-            await send_application_status_email(
-                user.email, job.title, job.company.name, update.status
-            )
-    except Exception as e:
-        print(f"[Application] Notification error: {e}")
+        if job:
+            status_label = update.status.replace("_", " ").title()
+            if update.status in ["accepted", "offered"]:
+                notif_title = f"Application Accepted!"
+                notif_msg = f"Your application for {job.title} at {job.company.name} has been accepted! Check your mail for more info."
+            elif update.status == "rejected":
+                notif_title = f"Application Update"
+                notif_msg = f"Your application for {job.title} at {job.company.name} has been reviewed. Status: {status_label}."
+            else:
+                notif_title = f"Application Status: {status_label}"
+                notif_msg = f"Your application for {job.title} at {job.company.name} status updated to: {status_label}."
 
+            notification = Notification(
+                user_id=app.user_id,
+                type=NotificationType.APPLICATION_STATUS,
+                title=notif_title,
+                message=notif_msg,
+            )
+            db.add(notification)
+    except Exception as e:
+        print(f"[Application] Notification creation error: {e}")
+
+    await db.commit()
+    await db.refresh(app)
     return app
 
 
@@ -425,6 +538,7 @@ async def get_job_applicants(
         .order_by(Application.match_score.desc().nullslast())
     )
     return result.scalars().all()
+
 
 
 # ============================================================

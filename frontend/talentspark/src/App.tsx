@@ -17,10 +17,11 @@ import JobMatch from "./pages/JobMatch";
 import Dashboard from "./pages/Dashboard";
 import SalaryPredictor from "./pages/SalaryPredictor";
 import CareerRoadmap from "./pages/CareerRoadmap";
-import InterviewPrep from "./pages/InterviewPrep";
-import ResumeBuilder from "./pages/ResumeBuilder";
 import RecruiterPortal from "./pages/RecruiterPortal";
 import LearningDashboard from "./pages/LearningDashboard";
+import InterviewPrep from "./pages/InterviewPrep";
+import Profile from "./pages/Profile";
+import Applications from "./pages/Applications";
 
 /** Decode a JWT payload without any library */
 function decodeJwtRole(token: string): string {
@@ -227,8 +228,9 @@ function App() {
       {currentPage === "roadmap" && <CareerRoadmap />}
       {currentPage === "prep" && <InterviewPrep />}
       {currentPage === "learning" && <LearningDashboard />}
-      {currentPage === "builder" && <ResumeBuilder />}
       {currentPage === "recruiter" && <RecruiterPortal />}
+      {currentPage === "profile" && <Profile />}
+      {currentPage === "applications" && <Applications />}
       
       <Footer />
     </>

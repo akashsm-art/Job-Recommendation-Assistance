@@ -277,6 +277,17 @@ async def analyze_user_skills(
         skills.extend(getattr(current_user, key) or [])
     skills.extend([s.name for s in (current_user.skills or [])])
 
+    if not skills:
+        return {
+            "trending_skills": [],
+            "stable_skills": [],
+            "declining_skills": [],
+            "untracked_skills": [],
+            "estimated_salary_boost_pct": 0.0,
+            "market_readiness": {"score": 0, "level": "🔴 Needs Improvement", "trending_pct": 0, "declining_pct": 0},
+            "recommendations": ["Add skills to your profile to get personalized market analysis."],
+        }
+
     res = analyze_user_skill_market_value(skills)
     return res
 

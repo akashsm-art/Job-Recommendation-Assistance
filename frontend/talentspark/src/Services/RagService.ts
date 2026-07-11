@@ -13,7 +13,7 @@ export async function embedJobs(): Promise<EmbedResult> {
 }
 
 export async function semanticSearch(question: string): Promise<SemanticSearchResponse> {
-    const response = await api.post<SemanticSearchResponse>("/rag/search", { question });
+    const response = await api.post<SemanticSearchResponse>("/rag/vector-search", { question });
     return response.data;
 }
 
@@ -35,9 +35,23 @@ export async function analyseResume(resume_text: string, job_description?: strin
     return { analysis: analysisStr };
 }
 
+export async function analyseResumeFile(file: File): Promise<ResumeAnalysis> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<{ analysis: any }>("/rag/analyze-resume-file", formData, {
+        headers: {
+            "Content-Type": "multipart/form-data",
+        },
+    });
+    const analysisStr = typeof response.data.analysis === 'string' 
+        ? response.data.analysis 
+        : JSON.stringify(response.data.analysis, null, 2);
+    return { analysis: analysisStr };
+}
+
 export async function matchJobs(skills: string, experience: string): Promise<JobMatchResponse> {
     // Falls back to search-similar-jobs query on backend
-    const response = await api.post<SemanticSearchResponse>("/rag/search", { question: `Skills: ${skills}. Experience: ${experience}` });
+    const response = await api.post<SemanticSearchResponse>("/rag/vector-search", { question: `Skills: ${skills}. Experience: ${experience}` });
     const matches = (response.data.results || []).map(r => ({
         job_id: r.job_id,
         title: r.title,

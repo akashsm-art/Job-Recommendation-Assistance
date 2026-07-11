@@ -21,13 +21,13 @@ async def seed():
     db = SessionLocal()
     try:
         # 1. Create default admin and recruiter users
-        admin_check = await db.execute(select(User).filter(User.email == "admin@talentspark.ai"))
+        admin_check = await db.execute(select(User).filter(User.email == "admin@jobcart.com"))
         admin = admin_check.scalars().first()
         if not admin:
             admin = User(
                 full_name="Platform Admin",
-                email="admin@talentspark.ai",
-                hashed_password=hash_password("admin123"),
+                email="admin@jobcart.com",
+                hashed_password=hash_password("jobcart007"),
                 role=UserRole.ADMIN,
                 is_verified=True,
                 is_active=True,
@@ -182,11 +182,11 @@ async def seed():
                 db.add(db_course)
 
         await db.commit()
-        print("✅ Database successfully seeded with test companies, jobs, courses, and roles!")
+        print("Success: Database successfully seeded with test companies, jobs, courses, and roles!")
 
     except Exception as e:
         await db.rollback()
-        print(f"❌ Seeding failed: {e}")
+        print(f"Error: Seeding failed: {e}")
     finally:
         await db.close()
 

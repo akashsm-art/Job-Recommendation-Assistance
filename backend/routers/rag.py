@@ -3,8 +3,9 @@ TalentSpark AI — RAG Router
 RAG search, embed jobs, ATS analysis, recommendations, skill gap, course recommendations.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional
 
@@ -38,6 +39,18 @@ class CourseRecommendRequest(BaseModel):
     missing_skills: list[str]
 
 
+class SemanticSearchResult(BaseModel):
+    job_id: Optional[int] = None
+    title: str
+    description: str
+    salary: Optional[float] = None
+    score: float
+
+
+class SemanticSearchResponse(BaseModel):
+    results: list[SemanticSearchResult]
+
+
 # --- Endpoints ---
 
 @router.post("/search", response_model=RAGSearchResponse)
@@ -51,12 +64,62 @@ def rag_search(request: RAGSearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/vector-search", response_model=SemanticSearchResponse)
+async def vector_search(
+    request: RAGSearchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Raw semantic vector search returning list of matching jobs."""
+    try:
+        from services.embeddings import search_similar_jobs
+        from models.job import Job
+        from sqlalchemy import select
+
+        similar_jobs = search_similar_jobs(request.question, top_k=10)
+        if not similar_jobs:
+            return {"results": []}
+
+        job_ids = [j["job_id"] for j in similar_jobs]
+        result = await db.execute(select(Job).filter(Job.id.in_(job_ids)))
+        jobs_db = {job.id: job for job in result.scalars().all()}
+
+        results = []
+        for j in similar_jobs:
+            job_obj = jobs_db.get(j["job_id"])
+            desc = job_obj.description if job_obj else ""
+            if not desc and "Description:" in j.get("document", ""):
+                try:
+                    desc = j["document"].split("Description:")[1].split("Requirements:")[0].strip()
+                except Exception:
+                    desc = j.get("document", "")
+
+            salary = None
+            if job_obj:
+                salary = job_obj.salary_max or job_obj.salary_min
+            else:
+                salary = float(j.get("salary_max", 0)) or float(j.get("salary_min", 0)) or None
+
+            results.append(
+                SemanticSearchResult(
+                    job_id=j["job_id"],
+                    title=job_obj.title if job_obj else j.get("title", "Unknown"),
+                    description=desc,
+                    salary=salary,
+                    score=j["score"]
+                )
+            )
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/embed-jobs", response_model=EmbedJobsResponse)
 async def embed_jobs(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(role_required(["admin"])),
+    current_user: User = Depends(get_current_user),
 ):
-    """Embed all active jobs into ChromaDB vector store (admin only)."""
+    """Embed all active jobs into ChromaDB vector store."""
     try:
         from services.embeddings import embed_all_jobs
         count = await embed_all_jobs(db)
@@ -80,6 +143,56 @@ async def analyze_resume(
         return {"analysis": analysis}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze-resume-file")
+async def analyze_resume_file(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Parse a resume file and run ATS resume analysis immediately."""
+    import os
+    import uuid
+    from pathlib import Path
+    
+    allowed_extensions = [".pdf", ".docx", ".txt"]
+    ext = Path(file.filename).suffix.lower()
+    if ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {ext}. Allowed: {allowed_extensions}"
+        )
+
+    # Ensure upload directory exists
+    upload_dir = os.getenv("UPLOAD_DIR", "./uploads")
+    Path(upload_dir).mkdir(parents=True, exist_ok=True)
+    
+    filename = f"temp_{current_user.id}_{uuid.uuid4().hex[:8]}{ext}"
+    file_path = os.path.join(upload_dir, filename)
+
+    try:
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        from services.parser import parse_resume_file
+        resume_text = parse_resume_file(file_path)
+
+        if not resume_text.strip():
+            raise HTTPException(status_code=400, detail="Could not extract text from the uploaded file")
+
+        from services.rag import rag_resume_review
+        review = rag_resume_review(resume_text)
+        return {"analysis": review}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Clean up temp file
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception:
+                pass
 
 
 @router.get("/recommend-jobs")
@@ -260,3 +373,40 @@ async def get_dashboard_stats(
         stats["platform_companies"] = total_companies.scalar() or 0
 
     return stats
+
+
+@router.get("/admin-stats")
+async def get_admin_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(role_required(["admin"])),
+):
+    """Full platform stats for admin dashboard."""
+    from models.job import Job
+    from models.company import Company
+    from models.application import Application
+    from models.users import UserRole
+    from sqlalchemy import func
+
+    total_users = await db.execute(select(func.count(User.id)))
+    total_candidates = await db.execute(
+        select(func.count(User.id)).filter(User.role == UserRole.CANDIDATE)
+    )
+    total_recruiters = await db.execute(
+        select(func.count(User.id)).filter(User.role == UserRole.RECRUITER)
+    )
+    total_companies = await db.execute(select(func.count(Company.id)))
+    total_jobs = await db.execute(select(func.count(Job.id)))
+    active_jobs = await db.execute(
+        select(func.count(Job.id)).filter(Job.is_active == True)
+    )
+    total_applications = await db.execute(select(func.count(Application.id)))
+
+    return {
+        "total_users": total_users.scalar() or 0,
+        "total_candidates": total_candidates.scalar() or 0,
+        "total_recruiters": total_recruiters.scalar() or 0,
+        "total_companies": total_companies.scalar() or 0,
+        "total_jobs": total_jobs.scalar() or 0,
+        "active_jobs": active_jobs.scalar() or 0,
+        "total_applications": total_applications.scalar() or 0,
+    }

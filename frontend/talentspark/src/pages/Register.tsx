@@ -8,7 +8,6 @@ type Props = {
 const ROLE_OPTIONS = [
     { label: "🔍 Job Seeker",     value: "candidate",   desc: "Browse and apply to job opportunities" },
     { label: "📋 Job Recruiter",  value: "recruiter",   desc: "Post and manage job listings" },
-    { label: "🛡️ Admin",          value: "admin",       desc: "Full platform access and management" },
 ];
 
 function Register({ onSwitchToLogin }: Props) {

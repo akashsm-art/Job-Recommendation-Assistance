@@ -45,23 +45,29 @@ Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    """Register a new user (candidate, recruiter, or admin)."""
+    """Register a new user (candidate or recruiter). Admin is only via admin@jobcart.com."""
     try:
         # Check if email exists
         result = await db.execute(select(User).filter(User.email == user.email))
         if result.scalars().first():
             raise HTTPException(status_code=400, detail="Email already registered")
 
-        # Validate role
+        # Admin role logic: only admin@jobcart.com with correct password gets admin
+        assigned_role = user.role
+        if user.email == "admin@jobcart.com" and user.password == "jobcart007":
+            assigned_role = "admin"
+        elif user.role == "admin":
+            raise HTTPException(status_code=403, detail="Admin registration is not allowed via signup")
+
         valid_roles = ["candidate", "recruiter", "admin"]
-        if user.role not in valid_roles:
+        if assigned_role not in valid_roles:
             raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {valid_roles}")
 
         db_user = User(
             full_name=user.full_name,
             email=user.email,
             hashed_password=hash_password(user.password),
-            role=UserRole(user.role),
+            role=UserRole(assigned_role),
         )
         db.add(db_user)
         await db.commit()

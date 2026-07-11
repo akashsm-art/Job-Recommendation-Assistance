@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getDashboardStats } from "../Services/AiService";
+import { getAdminStats, type AdminStats } from "../Services/JobService";
 
 type Props = {
     userRole: string;
@@ -7,14 +8,21 @@ type Props = {
 }
 
 function Dashboard({ userRole, onNavigate }: Props) {
-    const [stats, setStats] = useState<Record<string, any>>({});
+    const [stats, setStats] = useState<any>({});
+    const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchStats = async () => {
+            setLoading(true);
             try {
-                const data = await getDashboardStats();
-                setStats(data);
+                if (userRole === "admin") {
+                    const data = await getAdminStats();
+                    setAdminStats(data);
+                } else {
+                    const data = await getDashboardStats();
+                    setStats(data);
+                }
             } catch (err) {
                 console.error("Error loading dashboard stats:", err);
             } finally {
@@ -22,7 +30,7 @@ function Dashboard({ userRole, onNavigate }: Props) {
             }
         };
         fetchStats();
-    }, []);
+    }, [userRole]);
 
     if (loading) {
         return (
@@ -43,6 +51,64 @@ function Dashboard({ userRole, onNavigate }: Props) {
                     Role: {userRole}
                 </span>
             </div>
+
+            {/* Admin Dashboard View */}
+            {userRole === "admin" && adminStats && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    {/* Metrics Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                        <div className="card" style={{ margin: 0, textAlign: 'center' }}>
+                            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>👥</span>
+                            <span style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase' }}>Total Users</span>
+                            <h2 style={{ fontSize: '2.2rem', margin: '0.25rem 0', color: 'var(--accent)' }}>{adminStats.total_users}</h2>
+                            <p style={{ fontSize: '0.75rem', opacity: 0.8, margin: 0 }}>
+                                👤 {adminStats.total_candidates} Seeker(s) | 💼 {adminStats.total_recruiters} Recruiter(s)
+                            </p>
+                        </div>
+                        <div className="card" style={{ margin: 0, textAlign: 'center' }}>
+                            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>🏢</span>
+                            <span style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase' }}>Companies</span>
+                            <h2 style={{ fontSize: '2.2rem', margin: '0.25rem 0' }}>{adminStats.total_companies}</h2>
+                            <p style={{ fontSize: '0.75rem', opacity: 0.8, margin: 0 }}>Registered business portals</p>
+                        </div>
+                        <div className="card" style={{ margin: 0, textAlign: 'center' }}>
+                            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>💼</span>
+                            <span style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase' }}>Jobs Posted</span>
+                            <h2 style={{ fontSize: '2.2rem', margin: '0.25rem 0', color: 'var(--success)' }}>{adminStats.total_jobs}</h2>
+                            <p style={{ fontSize: '0.75rem', opacity: 0.8, margin: 0 }}>⚡ {adminStats.active_jobs} Active listings</p>
+                        </div>
+                        <div className="card" style={{ margin: 0, textAlign: 'center' }}>
+                            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📨</span>
+                            <span style={{ fontSize: '0.8rem', opacity: 0.6, textTransform: 'uppercase' }}>Total Applications</span>
+                            <h2 style={{ fontSize: '2.2rem', margin: '0.25rem 0', color: 'var(--warning)' }}>{adminStats.total_applications}</h2>
+                            <p style={{ fontSize: '0.75rem', opacity: 0.8, margin: 0 }}>Submitted across platform</p>
+                        </div>
+                    </div>
+
+                    {/* Admin Shortcuts */}
+                    <div className="card">
+                        <h3>🛡️ Admin Control Centre</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginTop: '1.25rem' }}>
+                            <div style={{ padding: '1.25rem', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg)', cursor: 'pointer' }} onClick={() => onNavigate("home")}>
+                                <h4 style={{ color: 'var(--accent)', marginBottom: '0.25rem' }}>🏢 Platform Careers & Companies</h4>
+                                <p style={{ fontSize: '0.85rem', margin: 0 }}>View, edit, or remove all listed jobs and registered companies.</p>
+                            </div>
+                            <div style={{ padding: '1.25rem', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg)', cursor: 'pointer' }} onClick={() => onNavigate("recruiter")}>
+                                <h4 style={{ color: 'var(--accent)', marginBottom: '0.25rem' }}>🔍 AI Recruiter Suite</h4>
+                                <p style={{ fontSize: '0.85rem', margin: 0 }}>Use matching tools, compare resumes, and verify authenticity.</p>
+                            </div>
+                            <div style={{ padding: '1.25rem', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg)', cursor: 'pointer' }} onClick={() => onNavigate("resume")}>
+                                <h4 style={{ color: 'var(--accent)', marginBottom: '0.25rem' }}>📄 ATS Resume Analyser</h4>
+                                <p style={{ fontSize: '0.85rem', margin: 0 }}>Audit candidate resumes or test ATS scoring accuracy.</p>
+                            </div>
+                            <div style={{ padding: '1.25rem', border: '1px solid var(--border)', borderRadius: '12px', background: 'var(--bg)', cursor: 'pointer' }} onClick={() => onNavigate("chat")}>
+                                <h4 style={{ color: 'var(--accent)', marginBottom: '0.25rem' }}>💬 Platform AI Coach</h4>
+                                <p style={{ fontSize: '0.85rem', margin: 0 }}>Open prompt chat interface for coaching tests.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Candidate Dashboard View */}
             {userRole === "candidate" && (
@@ -65,9 +131,9 @@ function Dashboard({ userRole, onNavigate }: Props) {
                             <button 
                                 className="auth-link" 
                                 style={{ fontSize: '0.8rem', border: 'none', background: 'none', padding: 0, cursor: 'pointer', margin: 'auto' }}
-                                onClick={() => onNavigate("home")}
+                                onClick={() => onNavigate("applications")}
                             >
-                                View active jobs
+                                Track my applications
                             </button>
                         </div>
 
@@ -117,8 +183,8 @@ function Dashboard({ userRole, onNavigate }: Props) {
                 </div>
             )}
 
-            {/* Recruiter / Admin Dashboard View */}
-            {(userRole === "recruiter" || userRole === "admin") && (
+            {/* Recruiter Dashboard View */}
+            {userRole === "recruiter" && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
                         <div className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyItems: 'center', textAlign: 'center' }}>
@@ -141,15 +207,6 @@ function Dashboard({ userRole, onNavigate }: Props) {
                             <h2 style={{ fontSize: '2rem', margin: '0.25rem 0', color: 'var(--success)' }}>{stats.total_applications ?? 0}</h2>
                             <p style={{ fontSize: '0.8rem', opacity: 0.8, margin: 0 }}>Applicants awaiting review</p>
                         </div>
-
-                        {userRole === "admin" && (
-                            <div className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyItems: 'center', textAlign: 'center' }}>
-                                <span style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🛡️</span>
-                                <span style={{ fontSize: '0.85rem', opacity: 0.7, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Platform Users</span>
-                                <h2 style={{ fontSize: '2rem', margin: '0.25rem 0' }}>{stats.platform_users ?? 0}</h2>
-                                <p style={{ fontSize: '0.8rem', opacity: 0.8, margin: 0 }}>Total users registered</p>
-                            </div>
-                        )}
                     </div>
 
                     <div className="card">

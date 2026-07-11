@@ -1,6 +1,7 @@
 import type {Job} from "../types/job";
 import type {Company} from "../types/company";
-import {useState} from "react";
+import {useState, useEffect} from "react";
+import { applyToJob, getMyApplications } from "../Services/JobService";
 
 type Props = {
     jobs:Job[];
@@ -14,6 +15,10 @@ type Props = {
 function JobCard({
     jobs,companies,userRole,onEdit,onDelete,onAdd}:Props){
         const canManageJobs = userRole === "admin" || userRole === "recruiter";
+        const isCandidate = userRole === "candidate";
+        const [appliedJobs, setAppliedJobs] = useState<Set<number>>(new Set());
+        const [applyingId, setApplyingId] = useState<number | null>(null);
+        const [applyMsg, setApplyMsg] = useState<{id: number; msg: string; ok: boolean} | null>(null);
         const [editJobId, setEditJobId] = useState<number | null>(null);
         const [addform,setAddform] = useState<Job>({
             id:0,
@@ -82,6 +87,32 @@ function JobCard({
                 skills:""
             })
         }
+
+        // Load existing applications to mark which jobs are already applied
+        useEffect(() => {
+            if (isCandidate) {
+                getMyApplications().then(apps => {
+                    setAppliedJobs(new Set(apps.map(a => a.job_id)));
+                }).catch(() => {});
+            }
+        }, [isCandidate]);
+
+        const handleApply = async (jobId: number) => {
+            setApplyingId(jobId);
+            setApplyMsg(null);
+            try {
+                await applyToJob(jobId);
+                setAppliedJobs(prev => new Set([...prev, jobId]));
+                setApplyMsg({ id: jobId, msg: "Applied successfully! 🎉", ok: true });
+                setTimeout(() => setApplyMsg(null), 3000);
+            } catch (err: any) {
+                const detail = err?.response?.data?.detail || "Failed to apply";
+                setApplyMsg({ id: jobId, msg: detail, ok: false });
+                setTimeout(() => setApplyMsg(null), 4000);
+            } finally {
+                setApplyingId(null);
+            }
+        };
 
     return(
         <div className="page-container" style={{ marginTop: '4rem' }}>
@@ -182,7 +213,40 @@ function JobCard({
                                 )}
                             </div>
                             <div>
-                                <div className="action-buttons">
+                                <div className="action-buttons" style={{ flexWrap: 'wrap' }}>
+                                    {isCandidate && (
+                                        <>
+                                            {appliedJobs.has(job.id) ? (
+                                                <button disabled style={{
+                                                    background: 'rgba(46, 213, 115, 0.15)', color: '#2ed573',
+                                                    border: '1px solid rgba(46, 213, 115, 0.3)',
+                                                    cursor: 'default', fontWeight: 600,
+                                                }}>
+                                                    ✅ Applied
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="btn-primary"
+                                                    onClick={() => handleApply(job.id)}
+                                                    disabled={applyingId === job.id}
+                                                    style={{
+                                                        background: 'linear-gradient(135deg, var(--accent), #7c3aed)',
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    {applyingId === job.id ? "Applying…" : "🚀 Apply Now"}
+                                                </button>
+                                            )}
+                                            {applyMsg && applyMsg.id === job.id && (
+                                                <span style={{
+                                                    fontSize: '0.8rem', fontWeight: 500,
+                                                    color: applyMsg.ok ? '#2ed573' : '#ff4757',
+                                                }}>
+                                                    {applyMsg.msg}
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
                                     {canManageJobs && (
                                     <button
                                         onClick={() => {
