@@ -1,0 +1,58 @@
+env
+.env
+node_modules
+*.pyc
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.sqlite3
+
+# Virtual Environment
+env/
+venv/
+backend/env/
+backend/venv/
+
+# Environment Variables
+.env
+*.env
+
+# Alembic cache
+alembic/versions/__pycache__/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# React / Vite
+dist/
+build/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python cache
+.pytest_cache/
+.mypy_cache/
+
+# Chroma DB
+chroma_db/
+
+env/
+venv/
+backend/env/
+backend/venv/
+node_modules/
+frontend/talentspark/node_modules/
+__pycache__/
+*.pyc
+.env

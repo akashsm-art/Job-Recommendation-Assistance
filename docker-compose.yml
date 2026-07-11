@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: talentspark-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 007
+      POSTGRES_DB: talentspark_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: talentspark-backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:007@db:5432/talentspark_db
+      - SECRET_KEY=talentspark_default_secret_key
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=120
+      - REFRESH_TOKEN_EXPIRE_DAYS=7
+      - GROQ_API_KEY=gsk_your_default_key_here
+      - FRONTEND_URL=http://localhost:80
+      - UPLOAD_DIR=/app/uploads
+      - CHROMA_PERSIST_DIR=/app/chroma_data
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend_uploads:/app/uploads
+      - chroma_data:/app/chroma_data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend/talentspark
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:8000
+    container_name: talentspark-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  backend_uploads:
+  chroma_data:
