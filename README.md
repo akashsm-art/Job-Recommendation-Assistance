@@ -130,3 +130,6 @@ Visit: http://localhost:8000/docs
 | **Candidate** | Browse jobs, apply, upload resume, get AI recommendations, chat with career coach, predict salaries, build roadmaps, practice interviews, check company fit |
 | **Recruiter** | Create company, post jobs, view applicants, rank candidates with AI, scan duplicate/fake resumes |
 | **Admin** | All recruiter + manage users, verify companies, embed jobs, platform analytics |
+
+//admin@jobcart.com
+//jobcart007
