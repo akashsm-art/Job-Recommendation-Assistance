@@ -13,12 +13,11 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:007@localhost:5432/talentspark_db")
 
-# Render cloud deployment guard
-if os.getenv("RENDER") == "true" and "localhost" in DATABASE_URL:
-    raise ValueError(
-        "DATABASE_URL environment variable is missing or misconfigured on Render. "
-        "It is currently falling back to localhost, which is not supported in production. "
-        "Please add a DATABASE_URL environment variable in your Render Web Service settings."
+# Render cloud deployment — warn if still on localhost fallback
+if os.getenv("RENDER") and "localhost" in DATABASE_URL:
+    print(
+        "WARNING: DATABASE_URL is falling back to localhost on Render. "
+        "Ensure DATABASE_URL is set in your Render environment or via render.yaml."
     )
 
 # Convert to async driver URL

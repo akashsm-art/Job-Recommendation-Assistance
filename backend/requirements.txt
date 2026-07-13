@@ -2,6 +2,9 @@
 # TalentSpark AI — Python Dependencies
 # ============================================================
 
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.3.1+cpu
+
 # --- Core Framework ---
 fastapi==0.115.0
 uvicorn[standard]==0.30.6

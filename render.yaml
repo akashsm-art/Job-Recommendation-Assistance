@@ -1,0 +1,47 @@
+# ============================================================
+# render.yaml — TalentSpark AI Infrastructure as Code
+# Automatically provisions: PostgreSQL DB + Backend Web Service
+# ============================================================
+
+databases:
+  - name: talentspark-db
+    databaseName: talentspark_db
+    user: postgres
+    plan: free
+
+services:
+  # ── Backend ─────────────────────────────────────────────
+  - type: web
+    name: Job-Recommendation-Assistance-1
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: talentspark-db
+          property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 120
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 7
+      - key: GROQ_API_KEY
+        value: YOUR_GROQ_API_KEY_HERE  # Set this in Render Dashboard → Environment tab
+      - key: CHROMA_PERSIST_DIR
+        value: ./chroma_data
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: APP_NAME
+        value: JOBCART
+      - key: APP_VERSION
+        value: "1.0.0"
+      - key: FRONTEND_URL
+        value: https://job-recommendation-assistance.vercel.app
