@@ -43,6 +43,7 @@ export interface ApplicationData {
     match_details?: string;
     applied_at?: string;
     updated_at?: string;
+    resume_snapshot?: string;
 }
 
 export async function applyToJob(jobId: number, coverLetter?: string): Promise<ApplicationData> {

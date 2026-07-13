@@ -330,7 +330,7 @@ function RecruiterPortal() {
                                             </span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            {app.match_score !== null && (
+                                            {app.match_score !== undefined && app.match_score !== null && (
                                                 <span className="badge badge-primary" style={{ fontWeight: 'bold' }}>
                                                     {Math.round(app.match_score * 100)}% Match
                                                 </span>
